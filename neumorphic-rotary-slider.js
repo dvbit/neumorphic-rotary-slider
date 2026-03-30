@@ -226,6 +226,9 @@ class NeumorphicRotarySliderCard extends HTMLElement {
         this._themeObserver = null;
         // ── Pointer events ────────────────────────────────────────────────────────
         this._onPointerDown = (e) => {
+            var _a;
+            if ((_a = this._config) === null || _a === void 0 ? void 0 : _a.display_only)
+                return;
             if (!this._isOnHandle(e))
                 return;
             this._dragging = true;
@@ -376,20 +379,25 @@ class NeumorphicRotarySliderCard extends HTMLElement {
     // Structure (inside shadow root):
     //
     //  ha-card
-    //  ├── div.title          ← top heading
+    //  ├── div.title#title-label       ← major label (top heading)
+    //  ├── div.minor-label#minor-label  ← minor label (subtitle)
     //  └── div.knob-wrap
     //      ├── canvas
+    //      ├── div.value-center#value-center-wrap  ← value overlay on disc
+    //      │   └── span#value-center-display
     //      ├── div.range-row
-    //      │   ├── span#min-display   ← bottom-left
-    //      │   └── span#max-display   ← bottom-right
-    //      └── div.value-wrap
-    //          └── span#value-display ← current value
+    //      │   ├── span#min-display        ← min caption (static)
+    //      │   ├── span#min-value-display  ← min numeric value
+    //      │   ├── span#max-value-display  ← max numeric value
+    //      │   └── span#max-display        ← max caption (static)
+    //      ├── div.value-wrap
+    //      │   └── span#value-display      ← current value (below)
     // ── Dynamic stylesheet ───────────────────────────────────────────────────
     // Called from _build (initial) and from setConfig (when card_size changes).
     // All px values derive from KS (card_size) via SCALE factor so the widget
     // looks identical at any size.
     _updateStyle(styleEl) {
-        var _a;
+        var _a, _b, _c, _d, _f, _g;
         const el = styleEl !== null && styleEl !== void 0 ? styleEl : (_a = this.shadowRoot) === null || _a === void 0 ? void 0 : _a.getElementById("neu-style");
         if (!el)
             return;
@@ -416,9 +424,9 @@ class NeumorphicRotarySliderCard extends HTMLElement {
         justify-content: center;
         padding: ${p28}px ${p20}px ${p20}px;
         box-sizing: border-box;
-        background:    var(--ha-card-background, var(--card-background-color, #23272e));
-        border-radius: var(--ha-card-border-radius, 18px);
-        box-shadow:    var(--ha-card-box-shadow, 8px 8px 18px #181a1f, -8px -8px 18px #2c3140);
+        background:    ${((_b = this._config) === null || _b === void 0 ? void 0 : _b.no_border) ? 'transparent' : 'var(--ha-card-background, var(--card-background-color, #23272e))'};
+        border-radius: ${((_c = this._config) === null || _c === void 0 ? void 0 : _c.no_border) ? '0' : 'var(--ha-card-border-radius, 18px)'};
+        box-shadow:    ${((_d = this._config) === null || _d === void 0 ? void 0 : _d.no_border) ? 'none' : 'var(--ha-card-box-shadow, 8px 8px 18px #181a1f, -8px -8px 18px #2c3140)'};
       }
 
       .title {
@@ -439,23 +447,26 @@ class NeumorphicRotarySliderCard extends HTMLElement {
 
       canvas {
         display:             block;
-        cursor:              grab;
+        cursor:              ${((_f = this._config) === null || _f === void 0 ? void 0 : _f.display_only) ? 'default' : 'grab'};
         touch-action:        none;
         user-select:         none;
         -webkit-user-select: none;
       }
-      canvas:active { cursor: grabbing; }
+      canvas:active { cursor: ${((_g = this._config) === null || _g === void 0 ? void 0 : _g.display_only) ? 'default' : 'grabbing'}; }
+      /* display_only: cursor:default already set above via template literal */
 
       .range-row {
         position:    relative;
-        height:      ${rh}px;
+        height:      ${rh * 2}px;
         margin-top:  ${mt8}px;
         font-family: var(--primary-font-family, sans-serif);
         font-size:   ${fs11}px;
         color:       var(--text-medium-light-color, #666);
       }
-      #min-display { position: absolute; left: ${mt8}px; top: 0; }
-      #max-display { position: absolute; right: ${mt8}px; top: 0; }
+      #min-display       { position: absolute; left:  ${mt8}px; top: 0; }
+      #max-display       { position: absolute; right: ${mt8}px; top: 0; }
+      #min-value-display { position: absolute; left:  ${mt8}px; top: ${rh}px; font-family: var(--primary-font-family, sans-serif); color: var(--primary-text-color, #e0e0e0); }
+      #max-value-display { position: absolute; right: ${mt8}px; top: ${rh}px; font-family: var(--primary-font-family, sans-serif); color: var(--primary-text-color, #e0e0e0); text-align: right; }
 
       .value-wrap {
         display:         flex;
@@ -479,6 +490,8 @@ class NeumorphicRotarySliderCard extends HTMLElement {
         align-items:     center;
         justify-content: center;
         pointer-events:  none;
+        flex-direction:  column;
+        gap:             ${Math.round(4 * sc)}px;
       }
       .value-center span {
         font-family: var(--primary-font-family, sans-serif);
@@ -488,6 +501,19 @@ class NeumorphicRotarySliderCard extends HTMLElement {
         white-space: nowrap;
         text-align:  center;
       }
+
+      /* ── minor label ── */
+      .minor-label {
+        font-family:    var(--primary-font-family, sans-serif);
+        font-size:      ${fs11}px;
+        font-weight:    400;
+        letter-spacing: 0.06em;
+        color:          var(--text-medium-light-color, #888);
+        margin-bottom:  ${Math.round(6 * sc)}px;
+        text-align:     center;
+      }
+
+
     `;
     }
     _build() {
@@ -521,21 +547,37 @@ class NeumorphicRotarySliderCard extends HTMLElement {
         valueWrap.className = "value-wrap";
         valueSpan.id = "value-display";
         this._canvas = canvas;
-        // Center-value overlay — always in DOM, visibility toggled by _applyLabelConfig
+        // ── Minor label ──────────────────────────────────────────────────────────
+        const minorEl = document.createElement("div");
+        minorEl.className = "minor-label";
+        minorEl.id = "minor-label";
+        // ── Center-value overlay ─────────────────────────────────────────────────
         const centerWrap = document.createElement("div");
         const centerSpan = document.createElement("span");
         centerWrap.className = "value-center";
         centerWrap.id = "value-center-wrap";
         centerSpan.id = "value-center-display";
         centerWrap.appendChild(centerSpan);
+        // ── Icon row — lives OUTSIDE knob-wrap at ha-card level ─────────────────
+        const minValSpan = document.createElement("span");
+        const maxValSpan = document.createElement("span");
+        minValSpan.id = "min-value-display";
+        maxValSpan.id = "max-value-display";
+        // ── Below-row (for icon_position=below) ──────────────────────────────────
+        const belowRow = document.createElement("div");
+        belowRow.className = "below-row";
+        belowRow.id = "below-row";
         rangeRow.appendChild(minSpan);
+        rangeRow.appendChild(minValSpan);
+        rangeRow.appendChild(maxValSpan);
         rangeRow.appendChild(maxSpan);
         valueWrap.appendChild(valueSpan);
         wrap.appendChild(canvas);
-        wrap.appendChild(centerWrap); // sits over canvas, pointer-events:none
+        wrap.appendChild(centerWrap);
         wrap.appendChild(rangeRow);
         wrap.appendChild(valueWrap);
         card.appendChild(titleEl);
+        card.appendChild(minorEl);
         card.appendChild(wrap);
         shadow.appendChild(style);
         shadow.appendChild(card);
@@ -550,35 +592,64 @@ class NeumorphicRotarySliderCard extends HTMLElement {
             return;
         const sr = this.shadowRoot;
         const cfg = this._config;
-        const pos = (_a = cfg.value_position) !== null && _a !== void 0 ? _a : "below"; // "below" | "center"
-        // ── title, min, max — unchanged ──────────────────────────────────────────
+        const pos = (_a = cfg.value_position) !== null && _a !== void 0 ? _a : "below";
+        // ── Major title ────────────────────────────────────────────────────────
+        const titleEl = sr.getElementById("title-label");
+        if (titleEl) {
+            const vis = labelVisible(cfg.title_label);
+            titleEl.style.display = vis ? "" : "none";
+            if (vis)
+                applyTypography(titleEl, cfg.title_label);
+        }
+        // ── Minor label ───────────────────────────────────────────────────────
+        const minorEl = sr.getElementById("minor-label");
+        if (minorEl) {
+            const vis = labelVisible(cfg.minor_label);
+            minorEl.style.display = vis ? "" : "none";
+            if (vis)
+                applyTypography(minorEl, cfg.minor_label);
+        }
+        // ── Min / Max caption labels ──────────────────────────────────────────
         for (const { id, labelCfg } of [
-            { id: "title-label", labelCfg: cfg.title_label },
             { id: "min-display", labelCfg: cfg.min_label },
             { id: "max-display", labelCfg: cfg.max_label },
         ]) {
             const el = sr.getElementById(id);
             if (!el)
                 continue;
-            const visible = labelVisible(labelCfg);
-            el.style.display = visible ? "" : "none";
-            if (visible)
+            const vis = labelVisible(labelCfg);
+            el.style.display = vis ? "" : "none";
+            if (vis)
                 applyTypography(el, labelCfg);
         }
-        // ── range-row: hide if both min+max hidden ────────────────────────────────
+        // ── Min / Max value displays ──────────────────────────────────────────
+        for (const { id, labelCfg } of [
+            { id: "min-value-display", labelCfg: cfg.min_value_label },
+            { id: "max-value-display", labelCfg: cfg.max_value_label },
+        ]) {
+            const el = sr.getElementById(id);
+            if (!el)
+                continue;
+            const vis = labelVisible(labelCfg);
+            el.style.display = vis ? "" : "none";
+            if (vis)
+                applyTypography(el, labelCfg);
+        }
+        // ── Range row: hide when ALL four are hidden ──────────────────────────
         const rangeRow = sr.querySelector(".range-row");
         if (rangeRow) {
-            rangeRow.style.display =
-                (!labelVisible(cfg.min_label) && !labelVisible(cfg.max_label)) ? "none" : "";
+            const any = labelVisible(cfg.min_label) || labelVisible(cfg.max_label)
+                || labelVisible(cfg.min_value_label) || labelVisible(cfg.max_value_label);
+            rangeRow.style.display = any ? "" : "none";
         }
-        // ── value display: route to "below" or "center" ───────────────────────────
+        // (display_only only affects _draw — no DOM class needed)
+        // ── Value display ────────────────────────────────────────────────────
         const showValue = labelVisible(cfg.value_label);
         const belowWrap = sr.querySelector(".value-wrap");
         const belowSpan = sr.getElementById("value-display");
         const centerWrap = sr.getElementById("value-center-wrap");
         const centerSpan = sr.getElementById("value-center-display");
         if (pos === "center") {
-            // Show center overlay, hide below row
             if (belowWrap)
                 belowWrap.style.display = "none";
             if (centerWrap)
@@ -587,7 +658,6 @@ class NeumorphicRotarySliderCard extends HTMLElement {
                 applyTypography(centerSpan, cfg.value_label);
         }
         else {
-            // Show below row, hide center overlay
             if (centerWrap)
                 centerWrap.style.display = "none";
             if (belowWrap)
@@ -669,7 +739,7 @@ class NeumorphicRotarySliderCard extends HTMLElement {
         });
     }
     _draw() {
-        var _a;
+        var _a, _b;
         if (!this._canvas || !this._config)
             return;
         const ctx = this._canvas.getContext("2d");
@@ -678,44 +748,31 @@ class NeumorphicRotarySliderCard extends HTMLElement {
         const p = this._isDark ? DARK_PALETTE : LIGHT_PALETTE;
         const glowColor = (_a = this._config.glow_color) !== null && _a !== void 0 ? _a : p.glow; // user override or palette default
         const { W, CX, CY, DISC_R, HANDLE_R } = this;
-        // ── 1. Full clear — canvas is bigger than the disc so glow can bleed ──────
+        // ── 1. Full clear ──────────────────────────────────────────────────────────
         ctx.clearRect(0, 0, W, W);
-        // ── 2. Handle position (computed before drawing so glow goes underneath) ──
-        const hp = this._handlePos();
-        // ── 3. Glow — clipped to inscribed circle, fades to zero before the edge ────
-        //
-        //    The canvas is 260×260 but displayed at 220×220.  Without clipping, the
-        //    glow gradient leaves faint colour in the four corners of the bitmap which
-        //    appear as a visible square against the card background.
-        //
-        //    Solution: clip all drawing to the circle that is inscribed in the canvas
-        //    square (radius = W/2 = 130px, centred at CX/CY).  This circle touches
-        //    the midpoint of each side but never the corners, so the bitmap corners
-        //    stay fully transparent — no square artifact.  The clip radius (130px) is
-        //    larger than the disc (95px) so the glow still bleeds outside the disc
-        //    and blooms into the card background naturally.
-        //
-        //    The gradient radius is set to the clip circle radius so it reaches
-        //    exactly alpha=0 at the clip boundary — no hard edge, just a smooth fade.
-        const clipR = W / 2; // 130px — inscribed circle, corners stay clear
-        const glowR = clipR; // gradient fades to 0 exactly at clip edge
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(CX, CY, clipR, 0, Math.PI * 2);
-        ctx.clip(); // everything outside this circle is discarded
-        const gi = this.GLOW_INT; // user-configured intensity, 0–1
-        const grad = ctx.createRadialGradient(hp.x, hp.y, HANDLE_R * 0.2, hp.x, hp.y, glowR);
-        grad.addColorStop(0, hexAlpha(glowColor, gi * 1.00));
-        grad.addColorStop(0.08, hexAlpha(glowColor, gi * 0.69));
-        grad.addColorStop(0.20, hexAlpha(glowColor, gi * 0.34));
-        grad.addColorStop(0.38, hexAlpha(glowColor, gi * 0.15));
-        grad.addColorStop(0.55, hexAlpha(glowColor, gi * 0.06));
-        grad.addColorStop(0.72, hexAlpha(glowColor, gi * 0.015));
-        grad.addColorStop(1.0, hexAlpha(glowColor, 0));
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, W, W);
-        ctx.restore(); // clip is released here
-        // ── 4. Under-disc range indicator (progress arc track / ghost glows / trail) ─
+        const displayOnly = (_b = this._config.display_only) !== null && _b !== void 0 ? _b : false;
+        // ── 2 & 3. Handle position + Glow (skipped in display_only) ──────────────
+        if (!displayOnly) {
+            const hp = this._handlePos();
+            const clipR = W / 2;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(CX, CY, clipR, 0, Math.PI * 2);
+            ctx.clip();
+            const gi = this.GLOW_INT;
+            const grad = ctx.createRadialGradient(hp.x, hp.y, HANDLE_R * 0.2, hp.x, hp.y, clipR);
+            grad.addColorStop(0, hexAlpha(glowColor, gi * 1.00));
+            grad.addColorStop(0.08, hexAlpha(glowColor, gi * 0.69));
+            grad.addColorStop(0.20, hexAlpha(glowColor, gi * 0.34));
+            grad.addColorStop(0.38, hexAlpha(glowColor, gi * 0.15));
+            grad.addColorStop(0.55, hexAlpha(glowColor, gi * 0.06));
+            grad.addColorStop(0.72, hexAlpha(glowColor, gi * 0.015));
+            grad.addColorStop(1.0, hexAlpha(glowColor, 0));
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, W, W);
+            ctx.restore();
+        }
+        // ── 4. Under-disc range indicator ─────────────────────────────────────────
         this._drawRangeUnder(ctx, p);
         // ── 5. Under-disc endpoint markers ────────────────────────────────────────
         this._drawMarkersUnder(ctx, p);
@@ -726,19 +783,21 @@ class NeumorphicRotarySliderCard extends HTMLElement {
         // ── 7. Optional 3D convex shading overlay ─────────────────────────────────
         if (this._config.disc_3d)
             this._drawDisc3D(ctx);
-        // ── 8. Over-disc endpoint markers (ticks, dots) ───────────────────────────
+        // ── 8. Over-disc endpoint markers ─────────────────────────────────────────
         this._drawMarkersOver(ctx, p);
-        // ── 9. Over-disc range indicator (dial ticks / progress arc active part) ──
+        // ── 9. Over-disc range indicator ──────────────────────────────────────────
         this._drawRangeOver(ctx, p);
-        // ── 10. Handle button ─────────────────────────────────────────────────────
-        const hOff = Math.round(5 * this.SCALE);
-        const hBlr = Math.round(12 * this.SCALE);
-        this._drawDisc(ctx, hp.x, hp.y, HANDLE_R, p.handleBg, p.shadowDark, p.shadowLight, hOff, hBlr);
-        // Handle centre dot
-        ctx.beginPath();
-        ctx.arc(hp.x, hp.y, Math.max(2, Math.round(HANDLE_R * 0.22)), 0, Math.PI * 2);
-        ctx.fillStyle = p.handleDot;
-        ctx.fill();
+        // ── 10. Handle button (skipped in display_only) ───────────────────────────
+        if (!displayOnly) {
+            const hp = this._handlePos();
+            const hOff = Math.round(5 * this.SCALE);
+            const hBlr = Math.round(12 * this.SCALE);
+            this._drawDisc(ctx, hp.x, hp.y, HANDLE_R, p.handleBg, p.shadowDark, p.shadowLight, hOff, hBlr);
+            ctx.beginPath();
+            ctx.arc(hp.x, hp.y, Math.max(2, Math.round(HANDLE_R * 0.22)), 0, Math.PI * 2);
+            ctx.fillStyle = p.handleDot;
+            ctx.fill();
+        }
         this._updateText();
     }
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1081,7 +1140,7 @@ class NeumorphicRotarySliderCard extends HTMLElement {
     }
     // ── Text update ───────────────────────────────────────────────────────────
     _updateText() {
-        var _a, _b, _c, _d, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q;
+        var _a, _b, _c, _d, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w;
         if (!this._config || !this.shadowRoot)
             return;
         const min = (_a = this._config.min) !== null && _a !== void 0 ? _a : 0;
@@ -1091,29 +1150,43 @@ class NeumorphicRotarySliderCard extends HTMLElement {
         const raw = min + this._value * (max - min);
         const decimals = step < 1 ? ((_g = (_f = String(step).split(".")[1]) === null || _f === void 0 ? void 0 : _f.length) !== null && _g !== void 0 ? _g : 1) : 0;
         const sr = this.shadowRoot;
-        // title
+        // ── Major title ─────────────────────────────────────────────────────────
         const titleEl = sr.getElementById("title-label");
         if (titleEl && labelVisible(this._config.title_label)) {
-            // Priority: title_label.text > flat label > entity id
             titleEl.textContent =
                 (_k = (_j = (_h = this._config.title_label) === null || _h === void 0 ? void 0 : _h.text) !== null && _j !== void 0 ? _j : this._config.label) !== null && _k !== void 0 ? _k : this._config.entity;
         }
-        // current value — write to whichever position is active
-        const pos = (_l = this._config.value_position) !== null && _l !== void 0 ? _l : "below";
+        // ── Minor label ─────────────────────────────────────────────────────────
+        const minorEl = sr.getElementById("minor-label");
+        if (minorEl && labelVisible(this._config.minor_label)) {
+            minorEl.textContent = (_m = (_l = this._config.minor_label) === null || _l === void 0 ? void 0 : _l.text) !== null && _m !== void 0 ? _m : "";
+        }
+        // ── Current value ────────────────────────────────────────────────────────
+        const pos = (_o = this._config.value_position) !== null && _o !== void 0 ? _o : "below";
         const activeId = pos === "center" ? "value-center-display" : "value-display";
         const valEl = sr.getElementById(activeId);
         if (valEl && labelVisible(this._config.value_label)) {
             valEl.textContent = raw.toFixed(decimals) + unit;
         }
-        // min
+        // ── Min caption (static text) ────────────────────────────────────────────
         const minEl = sr.getElementById("min-display");
         if (minEl && labelVisible(this._config.min_label)) {
-            minEl.textContent = (_o = (_m = this._config.min_label) === null || _m === void 0 ? void 0 : _m.text) !== null && _o !== void 0 ? _o : (min.toFixed(decimals) + unit);
+            minEl.textContent = (_q = (_p = this._config.min_label) === null || _p === void 0 ? void 0 : _p.text) !== null && _q !== void 0 ? _q : "";
         }
-        // max
+        // ── Min numeric value ────────────────────────────────────────────────────
+        const minValEl = sr.getElementById("min-value-display");
+        if (minValEl && labelVisible(this._config.min_value_label)) {
+            minValEl.textContent = (_s = (_r = this._config.min_value_label) === null || _r === void 0 ? void 0 : _r.text) !== null && _s !== void 0 ? _s : (min.toFixed(decimals) + unit);
+        }
+        // ── Max caption (static text) ────────────────────────────────────────────
         const maxEl = sr.getElementById("max-display");
         if (maxEl && labelVisible(this._config.max_label)) {
-            maxEl.textContent = (_q = (_p = this._config.max_label) === null || _p === void 0 ? void 0 : _p.text) !== null && _q !== void 0 ? _q : (max.toFixed(decimals) + unit);
+            maxEl.textContent = (_u = (_t = this._config.max_label) === null || _t === void 0 ? void 0 : _t.text) !== null && _u !== void 0 ? _u : "";
+        }
+        // ── Max numeric value ────────────────────────────────────────────────────
+        const maxValEl = sr.getElementById("max-value-display");
+        if (maxValEl && labelVisible(this._config.max_value_label)) {
+            maxValEl.textContent = (_w = (_v = this._config.max_value_label) === null || _v === void 0 ? void 0 : _v.text) !== null && _w !== void 0 ? _w : (max.toFixed(decimals) + unit);
         }
     }
     _attachEvents() {
@@ -1175,8 +1248,10 @@ class NeumorphicRotarySliderCard extends HTMLElement {
     }
     // ── Service call ──────────────────────────────────────────────────────────
     _commitValue() {
-        var _a, _b;
-        if (!this._hass || !((_a = this._config) === null || _a === void 0 ? void 0 : _a.service) || this._pendingScaled === null)
+        var _a, _b, _c;
+        if ((_a = this._config) === null || _a === void 0 ? void 0 : _a.display_only)
+            return;
+        if (!this._hass || !((_b = this._config) === null || _b === void 0 ? void 0 : _b.service) || this._pendingScaled === null)
             return;
         // _pendingScaled was already set in _onPointerUp — just send it.
         // No debounce: pointerup and pointercancel are both on window, so only one
@@ -1186,7 +1261,7 @@ class NeumorphicRotarySliderCard extends HTMLElement {
         const [domain, svc] = this._config.service.split(".");
         this._hass.callService(domain, svc, {
             entity_id: this._config.entity,
-            [(_b = this._config.service_data_key) !== null && _b !== void 0 ? _b : "value"]: scaled,
+            [(_c = this._config.service_data_key) !== null && _c !== void 0 ? _c : "value"]: scaled,
         });
     }
     // ── Card meta ─────────────────────────────────────────────────────────────
@@ -1229,273 +1304,388 @@ class NeumorphicRotarySliderCard extends HTMLElement {
 }
 // ── Editor ────────────────────────────────────────────────────────────────────
 //
-// Standard HA card editor pattern:
-//   - Named "<card-type>-editor", returned by getConfigElement()
-//   - HA sets .hass and calls setConfig(config) when the card is edited
-//   - Every change fires "config-changed" with { detail: { config } }
-//
-// We use a single <ha-form> element with a flat schema.
-// HA renders every schema entry natively — entity pickers, selects,
-// number fields, text fields, boolean toggles — with full styling and i18n.
-// Nested LabelConfig sub-objects are flattened into the top-level config
-// with a prefix (e.g. "tl_size" = title_label.size) and re-nested on fire().
+// Custom HTML editor — collapsible sections, color swatches, font picker with
+// Google Fonts presets, range sliders with live value display, toggle switches.
+// Fires "config-changed" on every change, always preserving `type`.
+const EDITOR_CSS = `
+  :host { display:block; font-family:var(--paper-font-body1_-_font-family,sans-serif); }
+  .sec-hdr {
+    display:flex; align-items:center; gap:8px;
+    font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--secondary-text-color,#8891a0);
+    padding:14px 0 6px; border-bottom:1px solid var(--divider-color,rgba(0,0,0,.08));
+    margin-bottom:10px; cursor:pointer; user-select:none;
+  }
+  .sec-hdr svg { flex-shrink:0; opacity:.55; transition:transform .18s ease; }
+  .sec-hdr.collapsed svg { transform:rotate(-90deg); }
+  .sec-body { margin-bottom:4px; }
+  .sec-body.hidden { display:none; }
+  label { display:block; font-size:12px; color:var(--secondary-text-color,#6b7280); margin-bottom:3px; font-weight:500; }
+  input[type=text],input[type=number],select {
+    width:100%; padding:8px 10px; border-radius:6px;
+    border:1px solid var(--divider-color,#d1d5db);
+    background:var(--card-background-color,#fff);
+    color:var(--primary-text-color,#111);
+    font-size:13px; box-sizing:border-box; font-family:inherit;
+    transition:border-color .15s;
+  }
+  input[type=text]:focus,input[type=number]:focus,select:focus { outline:none; border-color:var(--primary-color,#2196f3); }
+  .field { margin-bottom:8px; }
+  .row2 { display:flex; gap:8px; margin-bottom:8px; }
+  .row2 > * { flex:1; min-width:0; }
+  .row3 { display:flex; gap:6px; margin-bottom:8px; }
+  .row3 > * { flex:1; min-width:0; }
+  .range-wrap { display:flex; align-items:center; gap:8px; }
+  .range-wrap input[type=range] { flex:1; accent-color:var(--primary-color,#2196f3); }
+  .range-val { font-size:12px; font-weight:700; color:var(--primary-color,#2196f3); min-width:36px; text-align:right; font-family:monospace; }
+  .tog-row { display:flex; align-items:center; justify-content:space-between; padding:4px 0; margin-bottom:6px; }
+  .tog-row label { margin:0; }
+  .switch { position:relative; display:inline-block; width:36px; height:20px; flex-shrink:0; }
+  .switch input { opacity:0; width:0; height:0; }
+  .sw-track { position:absolute; cursor:pointer; inset:0; border-radius:20px; background:var(--divider-color,#ccc); transition:.2s; }
+  .sw-track::before { content:""; position:absolute; height:14px; width:14px; left:3px; bottom:3px; border-radius:50%; background:#fff; transition:.2s; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+  input:checked + .sw-track { background:var(--primary-color,#2196f3); }
+  input:checked + .sw-track::before { transform:translateX(16px); }
+  .color-field { display:flex; align-items:center; gap:6px; }
+  .color-swatch { width:32px; height:32px; border-radius:6px; flex-shrink:0; border:1px solid var(--divider-color,#d1d5db); cursor:pointer; position:relative; overflow:hidden; }
+  .color-swatch input[type=color] { position:absolute; inset:-4px; width:calc(100% + 8px); height:calc(100% + 8px); opacity:0; cursor:pointer; padding:0; border:none; }
+  .color-field input[type=text] { flex:1; font-family:monospace; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+  .font-hint { font-size:10px; color:var(--secondary-text-color,#8891a0); margin-top:2px; display:block; }
+  ha-entity-picker { display:block; width:100%; margin-bottom:8px; }
+`;
+const FONT_PRESETS = [
+    { v: "", l: "Default (theme)" }, { v: "system-ui", l: "System UI" }, { v: "Arial", l: "Arial" },
+    { v: "Helvetica Neue", l: "Helvetica Neue" }, { v: "Georgia", l: "Georgia" },
+    { v: "Times New Roman", l: "Times New Roman" }, { v: "Courier New", l: "Courier New" },
+    { v: "Roboto", l: "Roboto" }, { v: "Open Sans", l: "Open Sans" }, { v: "Lato", l: "Lato" },
+    { v: "Montserrat", l: "Montserrat" }, { v: "Raleway", l: "Raleway" }, { v: "Poppins", l: "Poppins" },
+    { v: "Nunito", l: "Nunito" }, { v: "Oswald", l: "Oswald" }, { v: "Playfair Display", l: "Playfair Display" },
+    { v: "Merriweather", l: "Merriweather" }, { v: "Ubuntu", l: "Ubuntu" }, { v: "Inter", l: "Inter" },
+    { v: "Source Sans Pro", l: "Source Sans Pro" }, { v: "Exo 2", l: "Exo 2" },
+    { v: "Josefin Sans", l: "Josefin Sans" }, { v: "Quicksand", l: "Quicksand" },
+    { v: "__custom__", l: "✏ Custom…" },
+];
+const WEB_SAFE = new Set(["", "system-ui", "Arial", "Helvetica Neue", "Georgia", "Times New Roman", "Courier New", "monospace", "serif", "sans-serif"]);
 class NeumorphicRotarySliderCardEditor extends HTMLElement {
     constructor() {
         super(...arguments);
         this._hass = null;
-        this._config = null;
-        this._rawConfig = {}; // full config including `type`
-        this._form = null;
+        this._config = {};
+        this._sections = {};
+        this._built = false;
     }
     set hass(hass) {
+        var _a;
         this._hass = hass;
-        if (this._form)
-            this._form.hass = hass;
+        (_a = this.shadowRoot) === null || _a === void 0 ? void 0 : _a.querySelectorAll("ha-entity-picker").forEach(el => { el.hass = hass; });
     }
     setConfig(config) {
-        // Keep the raw config (which HA passes with `type` intact) so we can
-        // always spread it back when firing config-changed.
-        this._rawConfig = config;
-        this._config = config;
-        if (!this._form)
-            this._build();
-        this._pushToForm();
+        this._config = Object.assign({}, config);
+        if (!this._built) {
+            this.attachShadow({ mode: "open" });
+            this._built = true;
+        }
+        this._render();
     }
-    // ── Build ─────────────────────────────────────────────────────────────────
-    _build() {
-        const form = document.createElement("ha-form");
-        this._form = form;
-        form.schema = this._schema();
-        form.computeLabel = (s) => { var _a; return (_a = s.label) !== null && _a !== void 0 ? _a : s.name; };
-        form.addEventListener("value-changed", (e) => this._onFormChange(e));
-        const root = this.attachShadow({ mode: "open" });
-        root.appendChild(form);
-    }
-    // ── Schema ────────────────────────────────────────────────────────────────
-    // ha-form schema reference:
-    //   selector.entity        → entity picker
-    //   selector.text          → text input
-    //   selector.number        → number slider+input
-    //   selector.select        → dropdown
-    //   selector.boolean       → toggle
-    //   selector.color_rgb     → colour picker (HA 2023.4+)
-    _schema() {
+    _get(path, fb = "") {
         var _a;
-        return [
-            // ── Entity ──────────────────────────────────────────────────────────
-            { name: "entity", label: "Entity", required: true, selector: { entity: {} } },
-            { name: "attribute", label: "Attribute (optional)", selector: { attribute: { entity_id: (_a = this._config) === null || _a === void 0 ? void 0 : _a.entity } } },
-            { name: "service", label: "Service (optional)", selector: { text: {} } },
-            { name: "service_data_key", label: "Service data key", selector: { text: {} } },
-            { name: "scale", label: "Scale", selector: { number: { min: 0.0001, max: 100, step: 0.001, mode: "box" } } },
-            // ── Range ────────────────────────────────────────────────────────────
-            { name: "min", label: "Min value", selector: { number: { min: -9999, max: 9999, step: "any", mode: "box" } } },
-            { name: "max", label: "Max value", selector: { number: { min: -9999, max: 9999, step: "any", mode: "box" } } },
-            { name: "step", label: "Step", selector: { number: { min: 0.001, max: 1000, step: "any", mode: "box" } } },
-            { name: "unit", label: "Unit (e.g. %)", selector: { text: {} } },
-            { name: "value_position", label: "Value position", selector: { select: { options: ["below", "center"] } } },
-            // ── Knob geometry ────────────────────────────────────────────────────
-            { name: "card_size", label: "Knob size (px, 100–400)", selector: { number: { min: 100, max: 400, step: 10, mode: "slider" } } },
-            { name: "disc_radius", label: "Disc radius (px, blank=auto-scale)", selector: { number: { min: 40, max: 115, step: 1, mode: "slider" } } },
-            { name: "handle_radius", label: "Handle radius (px, blank=auto-scale)", selector: { number: { min: 8, max: 40, step: 1, mode: "slider" } } },
-            { name: "disc_3d", label: "3D convex shading on disc", selector: { boolean: {} } },
-            // ── Glow ─────────────────────────────────────────────────────────────
-            { name: "glow_color", label: "Glow colour (blank=theme default)", selector: { text: {} } },
-            { name: "glow_intensity", label: "Glow intensity (0–1)", selector: { number: { min: 0, max: 1, step: 0.05, mode: "slider" } } },
-            // ── Angular range ────────────────────────────────────────────────────
-            { name: "zero_angle", label: "Zero angle (0=bottom 180=top)", selector: { number: { min: 0, max: 359, step: 1, mode: "slider" } } },
-            { name: "min_angle", label: "Min angle °CW from zero", selector: { number: { min: 0, max: 359, step: 1, mode: "slider" } } },
-            { name: "max_angle", label: "Max angle °CW from zero", selector: { number: { min: 1, max: 719, step: 1, mode: "slider" } } },
-            // ── Range style ──────────────────────────────────────────────────────
-            { name: "range_style", label: "Range style", selector: { select: { options: ["none", "progress", "dial_ticks"] } } },
-            { name: "dial_ticks", label: "Dial tick count (5–41)", selector: { number: { min: 5, max: 41, step: 1, mode: "slider" } } },
-            { name: "progress_color", label: "Progress colour (blank=glow colour)", selector: { text: {} } },
-            { name: "progress_color_end", label: "Progress gradient end (blank=solid)", selector: { text: {} } },
-            // ── Markers ──────────────────────────────────────────────────────────
-            { name: "markers", label: "Endpoint markers", selector: { select: { options: ["none", "ticks", "trail", "dots", "ghosts", "combined"] } } },
-            // ── Title label ───────────────────────────────────────────────────────
-            { name: "tl_show", label: "Title — show", selector: { boolean: {} } },
-            { name: "tl_text", label: "Title — text", selector: { text: {} } },
-            { name: "tl_size", label: "Title — font size (e.g. 13px)", selector: { text: {} } },
-            { name: "tl_color", label: "Title — colour", selector: { text: {} } },
-            { name: "tl_weight", label: "Title — font weight (e.g. 400)", selector: { text: {} } },
-            { name: "tl_font", label: "Title — font family", selector: { text: {} } },
-            { name: "tl_transform", label: "Title — text transform", selector: { select: { options: ["uppercase", "lowercase", "capitalize", "none"] } } },
-            { name: "tl_spacing", label: "Title — letter spacing (e.g. 0.08em)", selector: { text: {} } },
-            // ── Value label ───────────────────────────────────────────────────────
-            { name: "vl_show", label: "Value — show", selector: { boolean: {} } },
-            { name: "vl_size", label: "Value — font size (e.g. 22px)", selector: { text: {} } },
-            { name: "vl_color", label: "Value — colour", selector: { text: {} } },
-            { name: "vl_weight", label: "Value — font weight (e.g. 500)", selector: { text: {} } },
-            { name: "vl_font", label: "Value — font family", selector: { text: {} } },
-            { name: "vl_transform", label: "Value — text transform", selector: { select: { options: ["none", "uppercase", "lowercase", "capitalize"] } } },
-            { name: "vl_spacing", label: "Value — letter spacing", selector: { text: {} } },
-            // ── Min label ─────────────────────────────────────────────────────────
-            { name: "mnl_show", label: "Min label — show", selector: { boolean: {} } },
-            { name: "mnl_text", label: "Min label — text override", selector: { text: {} } },
-            { name: "mnl_size", label: "Min label — font size", selector: { text: {} } },
-            { name: "mnl_color", label: "Min label — colour", selector: { text: {} } },
-            { name: "mnl_font", label: "Min label — font family", selector: { text: {} } },
-            // ── Max label ─────────────────────────────────────────────────────────
-            { name: "mxl_show", label: "Max label — show", selector: { boolean: {} } },
-            { name: "mxl_text", label: "Max label — text override", selector: { text: {} } },
-            { name: "mxl_size", label: "Max label — font size", selector: { text: {} } },
-            { name: "mxl_color", label: "Max label — colour", selector: { text: {} } },
-            { name: "mxl_font", label: "Max label — font family", selector: { text: {} } },
-        ];
+        return (_a = path.split(".").reduce((o, k) => (o != null && typeof o === "object") ? o[k] : undefined, this._config)) !== null && _a !== void 0 ? _a : fb;
     }
-    // ── Flatten config → form data ────────────────────────────────────────────
-    // ha-form works with a flat key-value object matching the schema names.
-    // Nested LabelConfig objects are flattened with prefixes.
-    _flatten(c) {
-        var _a, _b, _c, _d, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, _31, _32, _33, _34, _35, _36, _37, _38, _39, _40, _41, _42;
-        return {
-            entity: c.entity,
-            attribute: c.attribute,
-            service: c.service,
-            service_data_key: (_a = c.service_data_key) !== null && _a !== void 0 ? _a : "value",
-            scale: (_b = c.scale) !== null && _b !== void 0 ? _b : 1,
-            min: (_c = c.min) !== null && _c !== void 0 ? _c : 0,
-            max: (_d = c.max) !== null && _d !== void 0 ? _d : 100,
-            step: (_f = c.step) !== null && _f !== void 0 ? _f : 1,
-            unit: (_g = c.unit) !== null && _g !== void 0 ? _g : "",
-            value_position: (_h = c.value_position) !== null && _h !== void 0 ? _h : "below",
-            card_size: (_j = c.card_size) !== null && _j !== void 0 ? _j : 220,
-            disc_radius: c.disc_radius,
-            handle_radius: c.handle_radius,
-            disc_3d: (_k = c.disc_3d) !== null && _k !== void 0 ? _k : false,
-            glow_color: (_l = c.glow_color) !== null && _l !== void 0 ? _l : "",
-            glow_intensity: (_m = c.glow_intensity) !== null && _m !== void 0 ? _m : 0.65,
-            zero_angle: (_o = c.zero_angle) !== null && _o !== void 0 ? _o : 0,
-            min_angle: (_p = c.min_angle) !== null && _p !== void 0 ? _p : 45,
-            max_angle: (_q = c.max_angle) !== null && _q !== void 0 ? _q : 315,
-            range_style: (_r = c.range_style) !== null && _r !== void 0 ? _r : "none",
-            dial_ticks: (_s = c.dial_ticks) !== null && _s !== void 0 ? _s : 21,
-            progress_color: (_t = c.progress_color) !== null && _t !== void 0 ? _t : "",
-            progress_color_end: (_u = c.progress_color_end) !== null && _u !== void 0 ? _u : "",
-            markers: (_v = c.markers) !== null && _v !== void 0 ? _v : "none",
-            // title_label
-            tl_show: ((_w = c.title_label) === null || _w === void 0 ? void 0 : _w.show) !== false,
-            tl_text: (_z = (_y = (_x = c.title_label) === null || _x === void 0 ? void 0 : _x.text) !== null && _y !== void 0 ? _y : c.label) !== null && _z !== void 0 ? _z : "",
-            tl_size: (_1 = (_0 = c.title_label) === null || _0 === void 0 ? void 0 : _0.size) !== null && _1 !== void 0 ? _1 : "",
-            tl_color: (_3 = (_2 = c.title_label) === null || _2 === void 0 ? void 0 : _2.color) !== null && _3 !== void 0 ? _3 : "",
-            tl_weight: String((_5 = (_4 = c.title_label) === null || _4 === void 0 ? void 0 : _4.weight) !== null && _5 !== void 0 ? _5 : ""),
-            tl_font: (_7 = (_6 = c.title_label) === null || _6 === void 0 ? void 0 : _6.font) !== null && _7 !== void 0 ? _7 : "",
-            tl_transform: (_9 = (_8 = c.title_label) === null || _8 === void 0 ? void 0 : _8.transform) !== null && _9 !== void 0 ? _9 : "uppercase",
-            tl_spacing: (_11 = (_10 = c.title_label) === null || _10 === void 0 ? void 0 : _10.spacing) !== null && _11 !== void 0 ? _11 : "",
-            // value_label
-            vl_show: ((_12 = c.value_label) === null || _12 === void 0 ? void 0 : _12.show) !== false,
-            vl_size: (_14 = (_13 = c.value_label) === null || _13 === void 0 ? void 0 : _13.size) !== null && _14 !== void 0 ? _14 : "",
-            vl_color: (_16 = (_15 = c.value_label) === null || _15 === void 0 ? void 0 : _15.color) !== null && _16 !== void 0 ? _16 : "",
-            vl_weight: String((_18 = (_17 = c.value_label) === null || _17 === void 0 ? void 0 : _17.weight) !== null && _18 !== void 0 ? _18 : ""),
-            vl_font: (_20 = (_19 = c.value_label) === null || _19 === void 0 ? void 0 : _19.font) !== null && _20 !== void 0 ? _20 : "",
-            vl_transform: (_22 = (_21 = c.value_label) === null || _21 === void 0 ? void 0 : _21.transform) !== null && _22 !== void 0 ? _22 : "",
-            vl_spacing: (_24 = (_23 = c.value_label) === null || _23 === void 0 ? void 0 : _23.spacing) !== null && _24 !== void 0 ? _24 : "",
-            // min_label
-            mnl_show: ((_25 = c.min_label) === null || _25 === void 0 ? void 0 : _25.show) !== false,
-            mnl_text: (_27 = (_26 = c.min_label) === null || _26 === void 0 ? void 0 : _26.text) !== null && _27 !== void 0 ? _27 : "",
-            mnl_size: (_29 = (_28 = c.min_label) === null || _28 === void 0 ? void 0 : _28.size) !== null && _29 !== void 0 ? _29 : "",
-            mnl_color: (_31 = (_30 = c.min_label) === null || _30 === void 0 ? void 0 : _30.color) !== null && _31 !== void 0 ? _31 : "",
-            mnl_font: (_33 = (_32 = c.min_label) === null || _32 === void 0 ? void 0 : _32.font) !== null && _33 !== void 0 ? _33 : "",
-            // max_label
-            mxl_show: ((_34 = c.max_label) === null || _34 === void 0 ? void 0 : _34.show) !== false,
-            mxl_text: (_36 = (_35 = c.max_label) === null || _35 === void 0 ? void 0 : _35.text) !== null && _36 !== void 0 ? _36 : "",
-            mxl_size: (_38 = (_37 = c.max_label) === null || _37 === void 0 ? void 0 : _37.size) !== null && _38 !== void 0 ? _38 : "",
-            mxl_color: (_40 = (_39 = c.max_label) === null || _39 === void 0 ? void 0 : _39.color) !== null && _40 !== void 0 ? _40 : "",
-            mxl_font: (_42 = (_41 = c.max_label) === null || _41 === void 0 ? void 0 : _41.font) !== null && _42 !== void 0 ? _42 : "",
-        };
+    _set(path, value) {
+        const parts = path.split(".");
+        let cur = this._config;
+        for (let i = 0; i < parts.length - 1; i++) {
+            if (cur[parts[i]] == null || typeof cur[parts[i]] !== "object")
+                cur[parts[i]] = {};
+            cur = cur[parts[i]];
+        }
+        cur[parts[parts.length - 1]] = value;
+        this._fire();
     }
-    // ── Unflatten form data → config ──────────────────────────────────────────
-    _unflatten(d) {
-        var _a, _b, _c, _d, _f, _g, _h, _j, _k, _l, _m, _o, _p;
-        const str = (k) => d[k] ? String(d[k]) : undefined;
-        const num = (k) => d[k] != null ? Number(d[k]) : undefined;
-        const bool = (k) => Boolean(d[k]);
-        return {
-            entity: String((_a = d.entity) !== null && _a !== void 0 ? _a : ""),
-            attribute: str("attribute"),
-            service: str("service"),
-            service_data_key: str("service_data_key"),
-            scale: num("scale"),
-            min: (_b = num("min")) !== null && _b !== void 0 ? _b : 0,
-            max: (_c = num("max")) !== null && _c !== void 0 ? _c : 100,
-            step: (_d = num("step")) !== null && _d !== void 0 ? _d : 1,
-            unit: str("unit"),
-            value_position: (_f = d.value_position) !== null && _f !== void 0 ? _f : "below",
-            card_size: (_g = num("card_size")) !== null && _g !== void 0 ? _g : 220,
-            disc_radius: num("disc_radius"),
-            handle_radius: num("handle_radius"),
-            disc_3d: bool("disc_3d"),
-            glow_color: str("glow_color"),
-            glow_intensity: (_h = num("glow_intensity")) !== null && _h !== void 0 ? _h : 0.65,
-            zero_angle: (_j = num("zero_angle")) !== null && _j !== void 0 ? _j : 0,
-            min_angle: (_k = num("min_angle")) !== null && _k !== void 0 ? _k : 45,
-            max_angle: (_l = num("max_angle")) !== null && _l !== void 0 ? _l : 315,
-            range_style: (_m = d.range_style) !== null && _m !== void 0 ? _m : "none",
-            dial_ticks: (_o = num("dial_ticks")) !== null && _o !== void 0 ? _o : 21,
-            progress_color: str("progress_color"),
-            progress_color_end: str("progress_color_end"),
-            markers: (_p = d.markers) !== null && _p !== void 0 ? _p : "none",
-            title_label: {
-                show: bool("tl_show"),
-                text: str("tl_text"),
-                size: str("tl_size"),
-                color: str("tl_color"),
-                weight: str("tl_weight"),
-                font: str("tl_font"),
-                transform: str("tl_transform"),
-                spacing: str("tl_spacing"),
-            },
-            value_label: {
-                show: bool("vl_show"),
-                size: str("vl_size"),
-                color: str("vl_color"),
-                weight: str("vl_weight"),
-                font: str("vl_font"),
-                transform: str("vl_transform"),
-                spacing: str("vl_spacing"),
-            },
-            min_label: {
-                show: bool("mnl_show"),
-                text: str("mnl_text"),
-                size: str("mnl_size"),
-                color: str("mnl_color"),
-                font: str("mnl_font"),
-            },
-            max_label: {
-                show: bool("mxl_show"),
-                text: str("mxl_text"),
-                size: str("mxl_size"),
-                color: str("mxl_color"),
-                font: str("mxl_font"),
-            },
-        };
-    }
-    // ── Sync config → form ────────────────────────────────────────────────────
-    _pushToForm() {
-        if (!this._form || !this._config)
-            return;
-        this._form.data =
-            this._flatten(this._config);
-        if (this._hass)
-            this._form.hass = this._hass;
-    }
-    // ── Handle form changes ───────────────────────────────────────────────────
-    _onFormChange(e) {
-        var _a;
-        e.stopPropagation();
-        const detail = (_a = e.detail) === null || _a === void 0 ? void 0 : _a.value;
-        if (!detail)
-            return;
-        // _rawConfig always contains `type` (and any other HA-injected keys).
-        // _unflatten only produces our own config keys — spread rawConfig first
-        // so `type` is never lost.
-        const newConfig = Object.assign(Object.assign({}, this._rawConfig), this._unflatten(detail));
+    _fire() {
         this.dispatchEvent(new CustomEvent("config-changed", {
-            detail: { config: newConfig },
-            bubbles: true,
-            composed: true,
+            detail: { config: Object.assign({}, this._config) }, bubbles: true, composed: true,
         }));
+    }
+    _loadFont(family) {
+        if (!family || WEB_SAFE.has(family))
+            return;
+        const id = `gfont-${family.replace(/\s+/g, "-")}`;
+        if (document.getElementById(id))
+            return;
+        const link = Object.assign(document.createElement("link"), {
+            id, rel: "stylesheet",
+            href: `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g, "+")}:wght@300;400;500;600;700&display=swap`,
+        });
+        document.head.appendChild(link);
+    }
+    _toggleSection(id) {
+        var _a, _b;
+        this._sections[id] = !this._sections[id];
+        (_a = this.shadowRoot.querySelector(`[data-sec="${id}"]`)) === null || _a === void 0 ? void 0 : _a.classList.toggle("collapsed", !!this._sections[id]);
+        (_b = this.shadowRoot.querySelector(`[data-secbody="${id}"]`)) === null || _b === void 0 ? void 0 : _b.classList.toggle("hidden", !!this._sections[id]);
+    }
+    // ── HTML builders ─────────────────────────────────────────────────────────
+    _sec(id, title, body) {
+        const c = !!this._sections[id];
+        return `<div class="sec-hdr${c ? " collapsed" : ""}" data-sec="${id}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+      ${title}</div>
+      <div class="sec-body${c ? " hidden" : ""}" data-secbody="${id}">${body}</div>`;
+    }
+    _text(path, lbl, ph = "") {
+        return `<div class="field"><label>${lbl}</label>
+      <input type="text" data-path="${path}" value="${String(this._get(path, "")).replace(/"/g, "&quot;")}" placeholder="${ph}">
+    </div>`;
+    }
+    _num(path, lbl, min, max, step = 1) {
+        return `<div class="field"><label>${lbl}</label>
+      <input type="number" data-path="${path}" value="${this._get(path, "")}" min="${min}" max="${max}" step="${step}">
+    </div>`;
+    }
+    _range(path, lbl, min, max, step, suffix = "") {
+        const v = Number(this._get(path, min));
+        return `<div class="field"><label>${lbl}</label>
+      <div class="range-wrap">
+        <input type="range" data-path="${path}" value="${v}" min="${min}" max="${max}" step="${step}" data-suffix="${suffix}">
+        <span class="range-val" data-rv="${path}">${v}${suffix}</span>
+      </div></div>`;
+    }
+    _select(path, lbl, opts) {
+        const cur = String(this._get(path, opts[0].value));
+        return `<div class="field"><label>${lbl}</label>
+      <select data-path="${path}">${opts.map(o => `<option value="${o.value}"${cur === o.value ? " selected" : ""}>${o.label}</option>`).join("")}</select>
+    </div>`;
+    }
+    _toggle(path, lbl) {
+        return `<div class="tog-row"><label>${lbl}</label>
+      <label class="switch"><input type="checkbox" data-path="${path}"${Boolean(this._get(path, false)) ? " checked" : ""}><span class="sw-track"></span></label>
+    </div>`;
+    }
+    _color(path, lbl, def = "#2196f3") {
+        let raw = String(this._get(path, "") || def);
+        if (!raw.startsWith("#"))
+            raw = def;
+        if (!/^#[0-9a-fA-F]{6}$/i.test(raw))
+            raw = def;
+        return `<div class="field"><label>${lbl}</label>
+      <div class="color-field" data-colorpath="${path}">
+        <div class="color-swatch" style="background:${raw}"><input type="color" value="${raw}"></div>
+        <input type="text" class="color-hex" value="${raw.toUpperCase()}" placeholder="#RRGGBB" maxlength="7">
+      </div></div>`;
+    }
+    _font(path, lbl) {
+        const cur = String(this._get(path, ""));
+        const isC = cur !== "" && !FONT_PRESETS.find(p => p.v === cur && p.v !== "__custom__");
+        const sel = isC ? "__custom__" : cur;
+        return `<div class="field"><label>${lbl}</label>
+      <select data-path="${path}" data-font-sel>
+        ${FONT_PRESETS.map(p => `<option value="${p.v}"${sel === p.v ? " selected" : ""}>${p.l}</option>`).join("")}
+      </select>
+      <input type="text" data-path="${path}" data-font-custom placeholder="e.g. Dancing Script"
+        style="${isC ? "" : "display:none"}" value="${isC ? cur : ""}">
+      <small class="font-hint">Google Fonts load automatically when selected.</small>
+    </div>`;
+    }
+    _labelBlock(prefix, hasText = true) {
+        return `
+      ${this._toggle(`${prefix}.show`, "Visible")}
+      ${hasText ? this._text(`${prefix}.text`, "Text override", "blank = auto") : ""}
+      <div class="row2">
+        ${this._text(`${prefix}.size`, "Size (e.g. 13px)", "13px")}
+        ${this._select(`${prefix}.weight`, "Weight", [
+            { value: "300", label: "300" }, { value: "400", label: "400" }, { value: "500", label: "500" },
+            { value: "600", label: "600" }, { value: "700", label: "700" },
+        ])}
+      </div>
+      ${this._font(`${prefix}.font`, "Font family")}
+      ${this._color(`${prefix}.color`, "Color", "#888888")}
+      <div class="row2">
+        ${this._select(`${prefix}.transform`, "Transform", [
+            { value: "", label: "None" }, { value: "uppercase", label: "Uppercase" },
+            { value: "lowercase", label: "Lowercase" }, { value: "capitalize", label: "Capitalize" },
+        ])}
+        ${this._text(`${prefix}.spacing`, "Letter spacing", "0.08em")}
+      </div>`;
+    }
+    // ── Main render ───────────────────────────────────────────────────────────
+    _render() {
+        const sr = this.shadowRoot;
+        const entityVal = String(this._get("entity", ""));
+        const entityEl = customElements.get("ha-entity-picker")
+            ? `<ha-entity-picker data-path="entity" value="${entityVal}" allow-custom-entity></ha-entity-picker>`
+            : this._text("entity", "Entity", "sensor.my_sensor");
+        const html = `
+    ${this._sec("entity", "🔌 Entity & Service", `
+      ${entityEl}
+      ${this._text("attribute", "Attribute (optional)", "e.g. volume_level")}
+      <div class="row2">
+        ${this._text("service", "Service", "e.g. media_player.volume_set")}
+        ${this._text("service_data_key", "Data key", "value")}
+      </div>
+      ${this._num("scale", "Scale", 0.0001, 100, 0.001)}
+    `)}
+    ${this._sec("range", "📐 Range & Value", `
+      <div class="row3">
+        ${this._num("min", "Min", -9999, 9999)}
+        ${this._num("max", "Max", -9999, 9999)}
+        ${this._num("step", "Step", 0.001, 1000, 0.001)}
+      </div>
+      ${this._text("unit", "Unit", "e.g. %")}
+      ${this._select("value_position", "Value position", [
+            { value: "below", label: "Below" }, { value: "center", label: "Center" },
+        ])}
+    `)}
+    ${this._sec("knob", "⬤ Knob Geometry", `
+      ${this._range("card_size", "Card size — diameter (px)", 100, 400, 10, "px")}
+      ${this._range("disc_radius", "Disc radius (px)", 40, 115, 1, "px")}
+      ${this._range("handle_radius", "Handle radius (px)", 8, 40, 1, "px")}
+      ${this._toggle("disc_3d", "3D convex shading")}
+      ${this._toggle("no_border", "No border / transparent background")}
+      ${this._toggle("use_theme_colors", "Use theme colors")}
+      ${this._toggle("display_only", "Display only — show value, no interaction")}
+    `)}
+    ${this._sec("glow", "✨ Glow", `
+      ${this._toggle("glow_enabled", "Enable glow")}
+      ${this._color("glow_color", "Glow colour", "#2196f3")}
+      ${this._range("glow_intensity", "Intensity (0–1) — sets size + opacity together", 0, 1, 0.05, "")}
+      <div class="row2">
+        ${this._num("glow_size",    "Size (px) — raw override", 0, 60, 1)}
+        ${this._num("glow_opacity", "Opacity — raw override",   0,  1, 0.01)}
+      </div>
+    `)}
+    ${this._sec("angles", "🔄 Angular Range", `
+      <small class="font-hint" style="display:block;margin-bottom:8px">0=bottom · 90=left · 180=top · 270=right</small>
+      ${this._range("zero_angle", "Zero angle", 0, 359, 1, "°")}
+      <div class="row2">
+        ${this._range("min_angle", "Min angle", 0, 359, 1, "°")}
+        ${this._range("max_angle", "Max angle", 1, 719, 1, "°")}
+      </div>
+    `)}
+    ${this._sec("rstyle", "〰 Range Style", `
+      ${this._select("range_style", "Style", [
+            { value: "none", label: "None" }, { value: "progress", label: "Progress arc" },
+            { value: "dial_ticks", label: "Dial ticks" },
+        ])}
+      ${this._range("dial_ticks", "Dial tick count", 5, 41, 1, "")}
+      ${this._color("progress_color", "Progress colour", "#2196f3")}
+      ${this._color("progress_color_end", "Gradient end (blank=solid)", "#32d48e")}
+      ${this._select("markers", "Endpoint markers", [
+            { value: "none", label: "None" }, { value: "ticks", label: "Ticks" },
+            { value: "trail", label: "Trail" }, { value: "dots", label: "Dots" },
+            { value: "ghosts", label: "Ghosts" }, { value: "combined", label: "Combined" },
+        ])}
+    `)}
+    ${this._sec("title_lbl", "𝗔 Major Label", this._labelBlock("title_label", true))}
+    ${this._sec("minor_lbl", "ᴬ Minor Label", this._labelBlock("minor_label", true))}
+    ${this._sec("value_lbl", "# Value Label", this._labelBlock("value_label", false))}
+    ${this._sec("min_lbl", "↙ Min Caption", this._labelBlock("min_label", true))}
+    ${this._sec("min_val_lbl", "↙ Min Value", this._labelBlock("min_value_label", false))}
+    ${this._sec("max_lbl", "↗ Max Caption", this._labelBlock("max_label", true))}
+    ${this._sec("max_val_lbl", "↗ Max Value", this._labelBlock("max_value_label", false))}
+    `;
+        const style = document.createElement("style");
+        style.textContent = EDITOR_CSS;
+        const div = document.createElement("div");
+        div.innerHTML = html;
+        // Text & number
+        div.querySelectorAll("input[type=text][data-path]:not(.color-hex):not([data-font-custom]),input[type=number][data-path]").forEach(el => el.addEventListener("change", () => {
+            let v = el.type === "number"
+                ? (el.value === "" ? undefined : Number(el.value))
+                : el.value;
+            // Auto-append "px" for size fields if user types a bare number (e.g. "13" → "13px")
+            if (el.type === "text" && typeof v === "string" && el.dataset.path.endsWith(".size")) {
+                if (v !== "" && /^\d+(\.\d+)?$/.test(v))
+                    v = v + "px";
+            }
+            this._set(el.dataset.path, v);
+            this._render();
+        }));
+        // Selects
+        div.querySelectorAll("select[data-path]").forEach(sel => {
+            sel.addEventListener("change", () => {
+                if (sel.dataset.fontSel !== undefined) {
+                    const ci = sel.nextElementSibling;
+                    if (sel.value === "__custom__") {
+                        ci.style.display = "";
+                        ci.focus();
+                        return;
+                    }
+                    if (ci)
+                        ci.style.display = "none";
+                    if (sel.value)
+                        this._loadFont(sel.value);
+                }
+                this._set(sel.dataset.path, sel.value);
+                this._render();
+            });
+        });
+        // Custom font inputs
+        div.querySelectorAll("input[data-font-custom]").forEach(el => {
+            el.addEventListener("change", () => {
+                if (el.value.trim())
+                    this._loadFont(el.value.trim());
+                this._set(el.dataset.path, el.value.trim());
+                this._render();
+            });
+        });
+        // Checkboxes
+        div.querySelectorAll("input[type=checkbox][data-path]").forEach(el => {
+            el.addEventListener("change", () => { this._set(el.dataset.path, el.checked); this._render(); });
+        });
+        // Ranges
+        div.querySelectorAll("input[type=range][data-path]").forEach(el => {
+            el.addEventListener("input", () => {
+                const rv = div.querySelector(`[data-rv="${el.dataset.path}"]`);
+                if (rv)
+                    rv.textContent = el.value + (el.dataset.suffix || "");
+            });
+            el.addEventListener("change", () => { this._set(el.dataset.path, Number(el.value)); this._render(); });
+        });
+        // Color fields
+        div.querySelectorAll(".color-field[data-colorpath]").forEach(field => {
+            const path = field.dataset.colorpath;
+            const native = field.querySelector("input[type=color]");
+            const swatch = field.querySelector(".color-swatch");
+            const text = field.querySelector("input.color-hex");
+            native.addEventListener("input", () => { swatch.style.background = native.value; text.value = native.value.toUpperCase(); });
+            native.addEventListener("change", () => { this._set(path, native.value); this._render(); });
+            text.addEventListener("input", () => {
+                let v = text.value.trim();
+                if (!v.startsWith("#"))
+                    v = "#" + v;
+                if (/^#[0-9a-fA-F]{6}$/i.test(v)) {
+                    swatch.style.background = v;
+                    native.value = v;
+                }
+            });
+            text.addEventListener("change", () => {
+                let v = text.value.trim();
+                if (!v.startsWith("#"))
+                    v = "#" + v;
+                if (/^#[0-9a-fA-F]{6}$/i.test(v)) {
+                    this._set(path, v);
+                    this._render();
+                }
+            });
+        });
+        // Section headers
+        div.querySelectorAll(".sec-hdr[data-sec]").forEach(el => {
+            el.addEventListener("click", () => this._toggleSection(el.dataset.sec));
+        });
+        // Entity picker
+        const ep = div.querySelector("ha-entity-picker");
+        if (ep) {
+            if (this._hass)
+                ep.hass = this._hass;
+            ep.addEventListener("value-changed", (e) => {
+                this._set("entity", e.detail.value);
+                this._render();
+            });
+        }
+        sr.innerHTML = "";
+        sr.appendChild(style);
+        sr.appendChild(div);
     }
 }
 customElements.define("neumorphic-rotary-slider-editor", NeumorphicRotarySliderCardEditor);
